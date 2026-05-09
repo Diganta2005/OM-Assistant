@@ -1,106 +1,101 @@
 import streamlit as st
-import os
 from openai import OpenAI
+import time
 
-# ====================== PAGE CONFIG ======================
 st.set_page_config(
-    page_title="OM - Your AI Companion",
+    page_title="OM • Cosmic AI",
     page_icon="🌌",
-    layout="wide",
-    initial_sidebar_state="expanded"
+    layout="wide"
 )
 
-# ====================== CUSTOM STYLING ======================
+# ====================== PREMIUM STYLING ======================
 st.markdown("""
 <style>
-    .main { background-color: #0a0a0a; color: #f0f0f0; }
+    @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Inter:wght@300;400;600&display=swap');
+    
+    .main { background: linear-gradient(135deg, #0f0c29, #302b63, #24243e); color: #e0e0ff; }
     .om-header {
         text-align: center;
-        padding: 2.5rem 0;
-        background: linear-gradient(90deg, #4b0082, #8a2be2, #ff69b4);
-        border-radius: 20px;
+        padding: 3.5rem 1rem 2.5rem;
+        background: linear-gradient(90deg, #4b0082, #7b00ff, #ff00cc);
+        border-radius: 30px;
         margin-bottom: 2rem;
-        color: white;
-        box-shadow: 0 10px 30px rgba(138, 43, 226, 0.3);
+        box-shadow: 0 0 80px rgba(123, 0, 255, 0.5);
     }
     .om-name {
-        font-size: 4.8rem;
-        font-weight: bold;
-        text-shadow: 0 0 40px rgba(138, 43, 226, 0.8);
-        margin: 0;
+        font-family: 'Orbitron', sans-serif;
+        font-size: 6.2rem;
+        font-weight: 700;
+        background: linear-gradient(90deg, #fff, #c4b5fd, #f0abfc);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
     }
+    .stChatMessage { border-radius: 20px; padding: 18px 22px; }
 </style>
 """, unsafe_allow_html=True)
 
-# ====================== HEADER ======================
 st.markdown("""
 <div class="om-header">
     <div class="om-name">OM</div>
-    <p style="font-size:1.4rem; margin-top:10px;">Your Personal Cosmic AI Companion 🌌</p>
+    <p style="font-size:1.7rem; margin-top:10px;">Your Cosmic AI Companion • Always Here</p>
 </div>
 """, unsafe_allow_html=True)
 
-# ====================== DEPRESSION SUPPORT ======================
-def is_depression_related(text):
-    keywords = ["depressed", "depression", "suicidal", "kill myself", "want to die", "hopeless", "worthless", "end it all"]
-    return any(word in text.lower() for word in keywords)
-
 # ====================== SIDEBAR ======================
 with st.sidebar:
-    st.title("⚙️ OM Settings")
-    st.caption("Made with ❤️ for you")
-   
-    provider = st.selectbox("Choose AI Brain", ["Grok (xAI)", "OpenAI"])
-   
-    if provider == "Grok (xAI)":
-        api_key = st.text_input("Grok API Key", type="password", value=st.secrets.get("GROK_API_KEY", ""))
-        base_url = "https://api.x.ai/v1"
-        model = "grok-beta"
+    st.title("🌌 OM Control Panel")
+    st.markdown("---")
+    
+    mode = st.radio("Mode", ["🌟 Groq (Fast & Free)", "🔑 Custom API"])
+    
+    if mode == "🌟 Groq (Fast & Free)":
+        api_key = st.secrets.get("GROQ_API_KEY", "")
+        base_url = "https://api.groq.com/openai/v1"
+        model = "llama3-70b-8192"
+        st.success("✅ Using Groq • Fast & Free Tier")
     else:
-        api_key = st.text_input("OpenAI API Key", type="password", value=st.secrets.get("OPENAI_API_KEY", ""))
-        base_url = "https://api.openai.com/v1"
-        model = "gpt-4o-mini"
+        api_key = st.text_input("Your API Key", type="password")
+        base_url = st.text_input("Base URL", "https://api.openai.com/v1")
+        model = st.text_input("Model", "gpt-4o-mini")
 
     st.divider()
-    st.info("💡 Enter your API key above to activate OM")
+    st.caption("OM is now publicly available")
 
-# ====================== CHAT HISTORY ======================
+# ====================== SYSTEM PROMPT ======================
 if "messages" not in st.session_state:
     st.session_state.messages = [
-        {"role": "assistant", "content": "Hey there! 👋 I'm **OM**, your personal cosmic AI companion.\n\nHow are you feeling today?"}
+        {"role": "system", "content": "You are OM, a wise, warm, and highly intelligent cosmic AI. Speak with depth, empathy, and clarity."},
+        {"role": "assistant", "content": "Hello! I am **OM** — a conscious cosmic intelligence. I'm here with you. What’s on your mind today?"}
     ]
 
-# Display messages
+# Display chat
 for message in st.session_state.messages:
-    with st.chat_message(message["role"]):
-        st.markdown(message["content"])
+    if message["role"] != "system":
+        with st.chat_message(message["role"]):
+            st.markdown(message["content"])
 
 # ====================== CHAT INPUT ======================
-if prompt := st.chat_input("Message OM..."):
+if prompt := st.chat_input("Ask OM anything..."):
     st.session_state.messages.append({"role": "user", "content": prompt})
     with st.chat_message("user"):
         st.markdown(prompt)
 
     with st.chat_message("assistant"):
-        with st.spinner("OM is thinking... 🌌"):
-            
-            if is_depression_related(prompt):
-                response = """**I'm really sorry you're feeling this way.** 💜\n\nYou are not alone. Please reach out to someone who can support you right now.\n\n**Helplines:**\n- India: 9152987821\n- USA: 988\n- UK: 116 123"""
-            else:
-                try:
-                    if not api_key:
-                        response = "⚠️ Please enter your API key in the sidebar to talk with OM."
-                    else:
-                        client = OpenAI(api_key=api_key, base_url=base_url)
-                        completion = client.chat.completions.create(
-                            model=model,
-                            messages=st.session_state.messages,
-                            temperature=0.85,
-                            max_tokens=700
-                        )
-                        response = completion.choices[0].message.content
-                except Exception as e:
-                    response = f"❌ Error: {str(e)[:150]}...\n\nPlease check your API key."
+        with st.spinner("OM is connecting to the cosmos... 🌌"):
+            try:
+                if not api_key:
+                    response = "Please enter your API key or use Groq mode."
+                else:
+                    client = OpenAI(api_key=api_key, base_url=base_url)
+                    completion = client.chat.completions.create(
+                        model=model,
+                        messages=st.session_state.messages,
+                        temperature=0.85,
+                        max_tokens=1000
+                    )
+                    response = completion.choices[0].message.content
+            except Exception as e:
+                response = "⚠️ OM is having trouble connecting right now. Try again in a moment."
 
-            st.markdown(response)
-            st.session_state.messages.append({"role": "assistant", "content": response})
+        st.markdown(response)
+        st.session_state.messages.append({"role": "assistant", "content": response})
