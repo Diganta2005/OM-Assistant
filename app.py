@@ -1,10 +1,6 @@
 import streamlit as st
-from dotenv import load_dotenv
 import os
-import pyttsx3
-
-# Load environment variables (API keys)
-load_dotenv()
+from openai import OpenAI
 
 # ====================== PAGE CONFIG ======================
 st.set_page_config(
@@ -33,10 +29,6 @@ st.markdown("""
         text-shadow: 0 0 40px rgba(138, 43, 226, 0.8);
         margin: 0;
     }
-    .stChatMessage {
-        border-radius: 18px;
-        padding: 14px 18px;
-    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -49,99 +41,66 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ====================== DEPRESSION SUPPORT ======================
-depression_keywords = [
-    "depressed", "depression", "suicidal", "kill myself", "want to die", 
-    "hopeless", "worthless", "no reason to live", "end it all"
-]
-
 def is_depression_related(text):
-    if not text:
-        return False
-    return any(word in text.lower() for word in depression_keywords)
+    keywords = ["depressed", "depression", "suicidal", "kill myself", "want to die", "hopeless", "worthless", "end it all"]
+    return any(word in text.lower() for word in keywords)
 
 # ====================== SIDEBAR ======================
 with st.sidebar:
     st.title("⚙️ OM Settings")
     st.caption("Made with ❤️ for you")
-    
-    provider = st.selectbox(
-        "Choose AI Brain", 
-        ["Grok (xAI)", "OpenAI", "Ollama (Local)"]
-    )
-    
+   
+    provider = st.selectbox("Choose AI Brain", ["Grok (xAI)", "OpenAI"])
+   
     if provider == "Grok (xAI)":
-        api_key = os.getenv("GROK_API_KEY") or st.text_input("Grok API Key", type="password")
+        api_key = st.text_input("Grok API Key", type="password", value=st.secrets.get("GROK_API_KEY", ""))
+        base_url = "https://api.x.ai/v1"
         model = "grok-beta"
-    elif provider == "OpenAI":
-        api_key = os.getenv("OPENAI_API_KEY") or st.text_input("OpenAI API Key", type="password")
-        model = st.selectbox("Model", ["gpt-4o", "gpt-4-turbo"])
     else:
-        model = "llama3.2"
-        api_key = None
+        api_key = st.text_input("OpenAI API Key", type="password", value=st.secrets.get("OPENAI_API_KEY", ""))
+        base_url = "https://api.openai.com/v1"
+        model = "gpt-4o-mini"
 
-    voice_enabled = st.checkbox("🔊 Enable Voice Output", value=True)
     st.divider()
-    st.info("OM is here to listen, help, and grow with you.")
+    st.info("💡 Enter your API key above to activate OM")
 
 # ====================== CHAT HISTORY ======================
 if "messages" not in st.session_state:
     st.session_state.messages = [
-        {
-            "role": "assistant", 
-            "content": "Hey there! 👋 I'm **OM**, your personal AI companion.\n\nHow are you feeling today?"
-        }
+        {"role": "assistant", "content": "Hey there! 👋 I'm **OM**, your personal cosmic AI companion.\n\nHow are you feeling today?"}
     ]
 
-# Display previous messages
+# Display messages
 for message in st.session_state.messages:
     with st.chat_message(message["role"]):
         st.markdown(message["content"])
 
-# ====================== USER INPUT ======================
-if prompt := st.chat_input("Type your message to OM..."):
-    
-    # Add user message
+# ====================== CHAT INPUT ======================
+if prompt := st.chat_input("Message OM..."):
     st.session_state.messages.append({"role": "user", "content": prompt})
     with st.chat_message("user"):
         st.markdown(prompt)
 
-    # OM's response area
     with st.chat_message("assistant"):
         with st.spinner("OM is thinking... 🌌"):
             
             if is_depression_related(prompt):
-                response = """
-**I'm really sorry you're feeling this way.** 💜  
-
-You are **not alone**, and it's okay to not be okay. Reaching out like this shows strength.
-
-**Please consider talking to someone:**
-- **USA**: Call or text **988**
-- **India**: iCall Helpline → **9152987821**
-- **UK**: Samaritans → **116 123**
-- Global help: [iasp.info](https://www.iasp.info/resources/Crisis_Centres/)
-
-I'm here to listen as long as you need. Would you like to tell me more?
-"""
+                response = """**I'm really sorry you're feeling this way.** 💜\n\nYou are not alone. Please reach out to someone who can support you right now.\n\n**Helplines:**\n- India: 9152987821\n- USA: 988\n- UK: 116 123"""
             else:
-                # Normal response (you can connect real LLM here later)
-                response = "I'm OM. Right now I'm running in basic mode. Once you connect an API key, I'll be able to have full conversations with you! 🌟"
+                try:
+                    if not api_key:
+                        response = "⚠️ Please enter your API key in the sidebar to talk with OM."
+                    else:
+                        client = OpenAI(api_key=api_key, base_url=base_url)
+                        completion = client.chat.completions.create(
+                            model=model,
+                            messages=st.session_state.messages,
+                            temperature=0.85,
+                            max_tokens=700
+                        )
+                        response = completion.choices[0].message.content
+                except Exception as e:
+                    response = f"❌ Error: {str(e)[:150]}...\n\nPlease check your API key."
 
             st.markdown(response)
             st.session_state.messages.append({"role": "assistant", "content": response})
-
-            # Voice Output
-            if voice_enabled:
-                try:
-                    engine = pyttsx3.init()
-                    engine.say(response[:200])   # Limit length for voice
-                    engine.runAndWait()
-                except:
-                    pass   # Silently ignore voice errors
-
-# ====================== FOOTER ======================
-st.markdown("---")
-st.markdown(
-    "<p style='text-align: center; color: #888;'>OM • Your Personal AI • Built with love and Python</p>", 
-    unsafe_allow_html=True
-)
